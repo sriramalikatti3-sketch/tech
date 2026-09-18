@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation for Subscriptions
+    function isValidSubscription(data, userId) {
+      return data.id is string && isValidId(data.id)
+        && data.userId == userId
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 128
+        && data.amount is number && data.amount >= 0
+        && data.status in ['active', 'cancelling', 'cancelled', 'paused', 'negotiating'];
+    }
+
+    // Validation for ActionRecords
+    function isValidAction(data, userId) {
+      return data.actionId is string && isValidId(data.actionId)
+        && data.idempotencyKey is string && data.idempotencyKey.size() <= 128
+        && data.userId == userId
+        && data.subscriptionId is string && isValidId(data.subscriptionId)
+        && data.executionStatus in ['pending', 'executing', 'completed', 'verified', 'failed', 'blocked'];
+    }
+
+    // Validation for Guardrails
+    function isValidGuardrail(data, userId) {
+      return data.userId == userId
+        && data.maxAutoAmount is number && data.maxAutoAmount >= 0
+        && data.minConfidence is number && data.minConfidence >= 0 && data.minConfidence <= 100
+        && data.pauseAutomation is bool;
+    }
+
+    // Match user document subcollections
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+
+      match /subscriptions/{subscriptionId} {
+        allow get: if isOwner(userId) && isValidId(subscriptionId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(subscriptionId) && isValidSubscription(incoming(), userId);
+        allow update: if isOwner(userId) && isValidId(subscriptionId) && isValidSubscription(incoming(), userId)
+          && incoming().userId == existing().userId
+          && incoming().id == existing().id;
+        allow delete: if isOwner(userId) && isValidId(subscriptionId);
+      }
+
+      match /actions/{actionId} {
+        allow get: if isOwner(userId) && isValidId(actionId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(actionId) && isValidAction(incoming(), userId);
+        allow update: if isOwner(userId) && isValidId(actionId) && isValidAction(incoming(), userId)
+          && incoming().actionId == existing().actionId
+          && incoming().userId == existing().userId;
+        allow delete: if false; // Actions are immutable historical records
+      }
+
+      match /auditLogs/{logId} {
+        allow get: if isOwner(userId) && isValidId(logId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(logId);
+        allow update, delete: if false; // Audit logs are strictly append-only
+      }
+
+      match /guardrails/{configDoc} {
+        allow get: if isOwner(userId) && configDoc == 'config';
+        allow create, update: if isOwner(userId) && configDoc == 'config' && isValidGuardrail(incoming(), userId);
+        allow delete: if false;
+      }
+    }
+  }
+}

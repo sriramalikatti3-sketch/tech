@@ -1,0 +1,6 @@
+{
+  "name": "Secure Money",
+  "description": "Autonomous AI subscription & financial guardian with Firebase authentication, deterministic guardrails, and automated receipt transaction monitoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

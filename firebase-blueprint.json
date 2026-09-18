@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "Subscription": {
+      "title": "Subscription",
+      "description": "Tracked recurring subscription detected from user transactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "merchant": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "maxLength": 64 },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "maxLength": 8 },
+        "billingCycle": { "type": "string", "enum": ["monthly", "yearly", "weekly"] },
+        "status": { "type": "string", "enum": ["active", "cancelling", "cancelled", "paused", "negotiating"] },
+        "daysSinceLastUsed": { "type": "number" },
+        "wasteScore": { "type": "number" },
+        "confidenceScore": { "type": "number" },
+        "riskLevel": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "amount", "status"]
+    },
+    "ActionRecord": {
+      "title": "ActionRecord",
+      "description": "Executed or queued action by the Guardian autonomous engine",
+      "type": "object",
+      "properties": {
+        "actionId": { "type": "string", "maxLength": 128 },
+        "idempotencyKey": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "subscriptionId": { "type": "string", "maxLength": 128 },
+        "actionType": { "type": "string", "maxLength": 64 },
+        "guardrailResult": { "type": "string", "enum": ["passed", "blocked", "requires_approval"] },
+        "executionStatus": { "type": "string", "enum": ["pending", "executing", "completed", "verified", "failed", "blocked"] },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["actionId", "idempotencyKey", "userId", "subscriptionId", "actionType", "executionStatus"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable security and action audit log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "timestamp": { "type": "string" },
+        "eventType": { "type": "string", "maxLength": 64 },
+        "entityId": { "type": "string", "maxLength": 128 },
+        "description": { "type": "string", "maxLength": 512 },
+        "severity": { "type": "string", "enum": ["info", "warning", "alert", "success"] }
+      },
+      "required": ["id", "userId", "timestamp", "eventType", "description"]
+    },
+    "GuardrailConfig": {
+      "title": "GuardrailConfig",
+      "description": "User guardrail and autonomous safety settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "maxAutoAmount": { "type": "number" },
+        "minConfidence": { "type": "number" },
+        "maxAutoRisk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"] },
+        "pauseAutomation": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "maxAutoAmount", "minConfidence", "pauseAutomation"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/subscriptions/{subscriptionId}": {
+      "schema": "Subscription",
+      "description": "User subscriptions tracked by Subscription Guardian"
+    },
+    "/users/{userId}/actions/{actionId}": {
+      "schema": "ActionRecord",
+      "description": "Autonomous action executions and verification records"
+    },
+    "/users/{userId}/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Immutable audit trail of all autonomous decisions and actions"
+    },
+    "/users/{userId}/guardrails/config": {
+      "schema": "GuardrailConfig",
+      "description": "Deterministic guardrail configurations per user"
+    }
+  }
+}
